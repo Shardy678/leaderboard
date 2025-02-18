@@ -5,6 +5,8 @@ import (
 	"leaderboard-system/internal/models"
 	"leaderboard-system/internal/repositories"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 type UserHandler struct {
@@ -16,11 +18,6 @@ func NewUserHandler(repo *repositories.UserRepository) *UserHandler {
 }
 
 func (h *UserHandler) AddUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var user models.User
 	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
@@ -42,12 +39,8 @@ func (h *UserHandler) AddUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		return
-	}
-
-	userID := r.URL.Query().Get("id")
+	vars := mux.Vars(r)
+	userID := vars["id"]
 	if userID == "" {
 		http.Error(w, "Missing id parameter", http.StatusBadRequest)
 		return
@@ -64,11 +57,6 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) GetAllUsers(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		return
-	}
-
 	users, err := h.repo.GetAllUsers()
 	if err != nil {
 		http.Error(w, "Failed to get all users", http.StatusInternalServerError)

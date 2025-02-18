@@ -2,7 +2,10 @@ module leaderboard-system
 
 go 1.24.0
 
-require github.com/redis/go-redis/v9 v9.7.0
+require (
+	github.com/gorilla/mux v1.8.1
+	github.com/redis/go-redis/v9 v9.7.0
+)
 
 require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
