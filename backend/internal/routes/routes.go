@@ -4,12 +4,26 @@ import (
 	"context"
 	"leaderboard-system/internal/handlers"
 	"leaderboard-system/internal/repositories"
+	"net/http"
 
 	"github.com/gorilla/mux"
 	"github.com/redis/go-redis/v9"
 )
 
 func RegisterRoutes(r *mux.Router, client *redis.Client, ctx context.Context) {
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
+
 	gameRepo := repositories.NewGameRepository(client, ctx)
 	gameHandler := handlers.NewGameHandler(gameRepo)
 
