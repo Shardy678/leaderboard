@@ -15,7 +15,7 @@ func RegisterRoutes(r *mux.Router, redisClient *redis.Client, ctx context.Contex
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusOK)
@@ -45,5 +45,5 @@ func RegisterRoutes(r *mux.Router, redisClient *redis.Client, ctx context.Contex
 	r.HandleFunc("/scores", scoreHandler.GetAllScores).Methods("GET")
 	r.HandleFunc("/scores", scoreHandler.AddScore).Methods("POST", "OPTIONS")
 	r.HandleFunc("/scores/{id}", scoreHandler.GetScore).Methods("GET")
-	r.HandleFunc("/scores/{score_id}/{user_id}", scoreHandler.GetRank).Methods("GET")
+	r.HandleFunc("/scores/{score_id}/{user_id}", scoreHandler.DeleteScore).Methods("DELETE", "OPTIONS")
 }

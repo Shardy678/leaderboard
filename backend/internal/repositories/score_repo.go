@@ -134,3 +134,12 @@ func (repo *ScoreRepository) GetRank(scoreID, userID string) (int, error) {
 	}
 	return int(rank) + 1, nil
 }
+
+func (repo *ScoreRepository) DeleteScore(scoreID, userID string) error {
+	scoreKey := "score:" + scoreID
+	_, err := repo.redisClient.ZRem(repo.ctx, scoreKey, userID).Result()
+	if err != nil {
+		return err
+	}
+	return nil
+}

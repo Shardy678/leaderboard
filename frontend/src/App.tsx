@@ -67,10 +67,18 @@ function App() {
         user_id: userId,
         score: score
       });
-      // Fetch scores again after adding a new score
-      await fetchScores(); // Call fetchScores to update the scores
+      await fetchScores(); 
     } catch (error) {
       console.error('Error adding score:', error);
+    }
+  };
+
+  const handleDeleteScore = async (scoreId: string, userId: string) => {
+    try {
+      await axios.delete(`http://localhost:8080/scores/${scoreId}/${userId}`); 
+      await fetchScores(); 
+    } catch (error) {
+      console.error('Error deleting score:', error);
     }
   };
 
@@ -100,6 +108,7 @@ function App() {
                       <tr>
                         <th>User</th>
                         <th>Score</th>
+                        <th>Delete</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -107,6 +116,9 @@ function App() {
                         <tr key={score.user_id}>
                           <td>{score.user_id}</td>
                           <td>{score.score}</td>
+                          <td>
+                            <button onClick={() => handleDeleteScore(score.score_id, score.user_id)}>❌</button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>

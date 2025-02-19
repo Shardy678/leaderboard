@@ -63,6 +63,21 @@ func (h *ScoreHandler) GetScore(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *ScoreHandler) DeleteScore(w http.ResponseWriter, r *http.Request) {
+	scoreID := mux.Vars(r)["score_id"]
+	userID := mux.Vars(r)["user_id"]
+
+	err := h.repo.DeleteScore(scoreID, userID)
+	if err != nil {
+		http.Error(w, "Failed to delete score", http.StatusInternalServerError)
+		log.Printf("Error deleting score: %v", err)
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"message": "Score deleted successfully"})
+	}
+}
+
 func (h *ScoreHandler) GetRank(w http.ResponseWriter, r *http.Request) {
 	scoreID := mux.Vars(r)["score_id"]
 	userID := mux.Vars(r)["user_id"]
