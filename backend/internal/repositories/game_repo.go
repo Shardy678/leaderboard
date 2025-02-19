@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"crypto/md5"
 	"fmt"
 	"leaderboard-system/internal/models"
 
@@ -30,18 +29,14 @@ func (repo *GameRepository) CreateGame(game models.Game) (string, error) {
 		return "", fmt.Errorf("game name cannot be empty")
 	}
 
-	hash := md5.Sum([]byte(game.Name))
-	game.ID = fmt.Sprintf("%x", hash)
-	game.ID = "game:" + game.ID[:10]
-
-	err := repo.redisClient.HSet(repo.ctx, game.ID, map[string]interface{}{
-		"name": game.Name,
-	}).Err()
+	query := "INSERT INTO games (name) VALUES ($1) RETURNING id"
+	var gameID string
+	err := repo.db.QueryRowContext(repo.ctx, query, game.Name).Scan(&gameID)
 	if err != nil {
 		return "", err
 	}
 
-	return game.ID, nil
+	return gameID, nil
 }
 
 func (repo *GameRepository) GetGame(gameID string) (models.Game, error) {
@@ -49,19 +44,17 @@ func (repo *GameRepository) GetGame(gameID string) (models.Game, error) {
 		return models.Game{}, fmt.Errorf("invalid game ID format")
 	}
 
-	game, err := repo.redisClient.HGetAll(repo.ctx, gameID).Result()
+	query := "SELECT id, name FROM games WHERE id = $1"
+	var game models.Game
+	err := repo.db.QueryRowContext(repo.ctx, query, gameID).Scan(&game.ID, &game.Name)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return models.Game{}, fmt.Errorf("game not found")
+		}
 		return models.Game{}, err
 	}
 
-	if len(game) == 0 {
-		return models.Game{}, fmt.Errorf("game not found")
-	}
-
-	return models.Game{
-		ID:   gameID,
-		Name: game["name"],
-	}, nil
+	return game, nil
 }
 
 func isValidGameID(gameID string) bool {
@@ -69,24 +62,24 @@ func isValidGameID(gameID string) bool {
 }
 
 func (repo *GameRepository) GetAllGames() ([]models.Game, error) {
-	keys, err := repo.redisClient.Keys(repo.ctx, "game:*").Result()
+	query := "SELECT id, name FROM games"
+	rows, err := repo.db.QueryContext(repo.ctx, query)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	var games []models.Game
-	for _, key := range keys {
-		gameData, err := repo.redisClient.HGetAll(repo.ctx, key).Result()
-		if err != nil {
+	for rows.Next() {
+		var game models.Game
+		if err := rows.Scan(&game.ID, &game.Name); err != nil {
 			return nil, err
 		}
+		games = append(games, game)
+	}
 
-		if len(gameData) > 0 {
-			games = append(games, models.Game{
-				ID:   key,
-				Name: gameData["name"],
-			})
-		}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return games, nil

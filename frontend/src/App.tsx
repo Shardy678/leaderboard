@@ -6,9 +6,9 @@ interface Score {
   rank: number;
   score: number;
   user_id: string;
-  username: string; // Added username to the Score interface
+  username: string; 
   game_id: string;
-  game_name: string; // Added game_name to the Score interface
+  game_name: string; 
 }
 
 function App() {
@@ -24,7 +24,7 @@ function App() {
 
   const groupedScores = scores.reduce((acc, score) => {
     if (!acc[score.game_id]) {
-      acc[score.game_id] = { game_name: score.game_name, scores: [] }; // Store game_name with scores
+      acc[score.game_id] = { game_name: score.game_name, scores: [] }; 
     }
     acc[score.game_id].scores.push(score);
     return acc;

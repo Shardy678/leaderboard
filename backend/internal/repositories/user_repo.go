@@ -2,9 +2,9 @@ package repositories
 
 import (
 	"context"
-	"crypto/md5"
 	"fmt"
 	"leaderboard-system/internal/models"
+	"log"
 
 	"database/sql"
 
@@ -26,40 +26,58 @@ func NewUserRepository(redisClient *redis.Client, ctx context.Context, db *sql.D
 }
 
 func (repo *UserRepository) CreateUser(user models.User) (string, error) {
-	hash := md5.Sum([]byte(user.Username))
-	user.ID = "user:" + fmt.Sprintf("%x", hash)
-	user.ID = user.ID[:14]
+	if user.Username == "" || user.Password == "" {
+		return "", fmt.Errorf("username and password cannot be empty")
+	}
 
-	err := repo.redisClient.HSet(repo.ctx, user.ID, map[string]interface{}{
-		"username": user.Username,
-		"password": user.Password,
-	}).Err()
-
+	query := "INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id"
+	var userID string
+	err := repo.db.QueryRowContext(repo.ctx, query, user.Username, user.Password).Scan(&userID)
 	if err != nil {
+		log.Println("Error creating user:", err)
 		return "", err
 	}
 
-	return user.ID, nil
+	return userID, nil
 }
 
 func (repo *UserRepository) GetUser(userID string) (models.User, error) {
-	userData, err := repo.redisClient.HGetAll(repo.ctx, userID).Result()
+	query := "SELECT username, password FROM users WHERE id = $1"
+	var user models.User
+	err := repo.db.QueryRowContext(repo.ctx, query, userID).Scan(&user.Username, &user.Password)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return models.User{}, nil
+		}
 		return models.User{}, err
 	}
-
-	if len(userData) == 0 {
-		return models.User{}, nil // User not found
-	}
-
-	return models.User{
-		ID:       userID,
-		Username: userData["username"],
-		Password: userData["password"],
-	}, nil
+	user.ID = userID
+	return user, nil
 }
 
-func (repo *UserRepository) GetAllUsers() ([]string, error) {
-	users, err := repo.redisClient.Keys(repo.ctx, "*").Result()
-	return users, err
+func (repo *UserRepository) GetAllUsers() ([]interface{}, error) {
+	query := "SELECT id, username FROM users"
+	rows, err := repo.db.QueryContext(repo.ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []interface{}
+	for rows.Next() {
+		var user struct {
+			ID       string
+			Username string
+		}
+		if err := rows.Scan(&user.ID, &user.Username); err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return users, nil
 }
