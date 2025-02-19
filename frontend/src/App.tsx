@@ -12,6 +12,7 @@ interface Game {
   id: string;
   name: string;
 }
+
 function App() {
   const [games, setGames] = useState<Game[]>([]);
   const [scores, setScores] = useState<Set<Score>>(new Set());
@@ -29,35 +30,63 @@ function App() {
     fetchGames();
   }, []); 
 
-  useEffect(() => {
-    const fetchScores = async () => {
-        const allScores: Score[] = [];
-        for (const game of games) {
-            try {
-                const response = await axios.get(`http://localhost:8080/scores/${game.id}`);
-                response.data.forEach((scoreData: { member: string; score: number; score_id: string; }) => {
-                    allScores.push({ 
-                        score_id: scoreData.score_id,
-                        user_id: scoreData.member,
-                        score: scoreData.score
-                    });
+  const fetchScores = async () => {
+    const allScores: Score[] = [];
+    for (const game of games) {
+        try {
+            const response = await axios.get(`http://localhost:8080/scores/${game.id}`);
+            response.data.forEach((scoreData: { member: string; score: number; score_id: string; }) => {
+                allScores.push({ 
+                    score_id: scoreData.score_id,
+                    user_id: scoreData.member,
+                    score: scoreData.score
                 });
-            } catch (error) {
-                console.error(`Error fetching scores for game ${game.id}:`, error);
-            }
+            });
+        } catch (error) {
+            console.error(`Error fetching scores for game ${game.id}:`, error);
         }
-        setScores(new Set(allScores));
-    };
+    }
+    setScores(new Set(allScores));
+  };
 
+  useEffect(() => {
     if (games.length > 0) {
         fetchScores();
     }
   }, [games]); 
 
+  const handleAddScore = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.target as HTMLFormElement);
+    const gameId = formData.get('gameId') as string;
+    const userId = formData.get('userId') as string;
+    const score = parseInt(formData.get('score') as string);
+    try {
+      const response = await axios.post("http://localhost:8080/scores", {
+        game_id: gameId,
+        user_id: userId,
+        score: score
+      });
+      // Fetch scores again after adding a new score
+      await fetchScores(); // Call fetchScores to update the scores
+    } catch (error) {
+      console.error('Error adding score:', error);
+    }
+  };
+
   return (
     <>
       <div>
         <h1>Leaderboard</h1>
+        <div>
+          <h2>Add a new score</h2>
+          <form onSubmit={handleAddScore}>
+            <input type="text" name="gameId" placeholder="Game ID" />
+            <input type="text" name="userId" placeholder="User ID" />
+            <input type="number" name="score" placeholder="Score" />
+            <button type="submit">Add Score</button>
+          </form>
+        </div>
         <div>
           <h2>Scores</h2>
           {games.map(game => {

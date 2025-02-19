@@ -35,7 +35,7 @@ func RegisterRoutes(r *mux.Router, redisClient *redis.Client, ctx context.Contex
 	userRepo := repositories.NewUserRepository(redisClient, ctx, db)
 	userHandler := handlers.NewUserHandler(userRepo)
 
-	r.HandleFunc("/users", userHandler.AddUser).Methods("POST")
+	r.HandleFunc("/users", userHandler.AddUser).Methods("POST", "OPTIONS")
 	r.HandleFunc("/users/{id}", userHandler.GetUser).Methods("GET")
 	r.HandleFunc("/users", userHandler.GetAllUsers).Methods("GET")
 
@@ -43,7 +43,7 @@ func RegisterRoutes(r *mux.Router, redisClient *redis.Client, ctx context.Contex
 	scoreHandler := handlers.NewScoreHandler(scoreRepo)
 
 	r.HandleFunc("/scores", scoreHandler.GetAllScores).Methods("GET")
-	r.HandleFunc("/scores", scoreHandler.AddScore).Methods("POST")
+	r.HandleFunc("/scores", scoreHandler.AddScore).Methods("POST", "OPTIONS")
 	r.HandleFunc("/scores/{id}", scoreHandler.GetScore).Methods("GET")
 	r.HandleFunc("/scores/{score_id}/{user_id}", scoreHandler.GetRank).Methods("GET")
 }
