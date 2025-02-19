@@ -6,7 +6,9 @@ interface Score {
   rank: number;
   score: number;
   user_id: string;
+  username: string; // Added username to the Score interface
   game_id: string;
+  game_name: string; // Added game_name to the Score interface
 }
 
 function App() {
@@ -22,11 +24,11 @@ function App() {
 
   const groupedScores = scores.reduce((acc, score) => {
     if (!acc[score.game_id]) {
-      acc[score.game_id] = [];
+      acc[score.game_id] = { game_name: score.game_name, scores: [] }; // Store game_name with scores
     }
-    acc[score.game_id].push(score);
+    acc[score.game_id].scores.push(score);
     return acc;
-  }, {} as Record<string, Score[]>);
+  }, {} as Record<string, { game_name: string; scores: Score[] }>);
 
   return (
     <>
@@ -41,11 +43,11 @@ function App() {
           <h2>Scores</h2>
           {Object.keys(groupedScores).map((gameId) => (
             <div key={gameId}>
-              <h3>Game ID: {gameId}</h3>
+              <h3>Game: {groupedScores[gameId].game_name} (ID: {gameId})</h3> 
               <ul>
-                {groupedScores[gameId].map((score) => (
+                {groupedScores[gameId].scores.map((score) => (
                   <li key={score.user_id}>
-                    Rank: {score.rank} - Score: {score.score} - User: {score.user_id}
+                    Rank: {score.rank} - Score: {score.score} - User: {score.username} (ID: {score.user_id})
                   </li>
                 ))}
               </ul>

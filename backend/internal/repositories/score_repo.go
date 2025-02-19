@@ -84,12 +84,26 @@ func (repo *ScoreRepository) GetAllScores() ([]map[string]interface{}, error) {
 			if err != nil {
 				return nil, err
 			}
+			gameID := strings.TrimPrefix(key, "score:")
+			gameName, err := repo.client.HGet(repo.ctx, gameID, "name").Result()
+			if err != nil {
+				return nil, err
+			}
 			for rank, score := range scores {
+				userID := score.Member
+				userIDStr := fmt.Sprintf("%v", userID)
+				username, err := repo.client.HGet(repo.ctx, userIDStr, "username").Result() // Fetch username by user ID
+				fmt.Println(userIDStr)
+				if err != nil {
+					return nil, err
+				}
 				allScores = append(allScores, map[string]interface{}{
-					"rank":    rank + 1,
-					"score":   score.Score,
-					"user_id": score.Member,
-					"game_id": strings.TrimPrefix(key, "score:"),
+					"rank":      rank + 1,
+					"score":     score.Score,
+					"user_id":   userID,
+					"username":  username, // Include username in the result
+					"game_id":   gameID,
+					"game_name": gameName,
 				})
 			}
 		}
