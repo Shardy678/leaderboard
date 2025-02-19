@@ -53,13 +53,13 @@ func (h *ScoreHandler) GetScore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	score, err := h.repo.GetScore(scoreID)
+	scores, err := h.repo.GetScores(scoreID)
 	if err != nil {
 		http.Error(w, "Failed to get score", http.StatusInternalServerError)
 		log.Printf("Error getting score: %v", err)
 	} else {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(score)
+		json.NewEncoder(w).Encode(scores)
 	}
 }
 

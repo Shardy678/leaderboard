@@ -1,89 +1,97 @@
 import axios from 'axios';
-import './App.css'
+import './App.css';
 import { useEffect, useState } from 'react';
 
 interface Score {
-  rank: number;
-  score: number;
+  score_id: string;
   user_id: string;
-  username: string; 
-  game_id: string;
-  game_name: string; 
+  score: number;
 }
 
+interface Game {
+  id: string;
+  name: string;
+}
 function App() {
-  const [scores, setScores] = useState<Score[]>([]);
+  const [games, setGames] = useState<Game[]>([]);
+  const [scores, setScores] = useState<Set<Score>>(new Set());
 
   useEffect(() => {
-    const getScores = async () => {
-      const fetchedScores = await fetchScores();
-      setScores(fetchedScores);
+    const fetchGames = async () => {
+        try {
+            const response = await axios.get('http://localhost:8080/games');
+            setGames(response.data);
+        } catch (error) {
+            console.error('Error fetching games:', error);
+        }
     };
-    getScores();
-  }, []);
 
-  const groupedScores = scores.reduce((acc, score) => {
-    if (!acc[score.game_id]) {
-      acc[score.game_id] = { game_name: score.game_name, scores: [] }; 
+    fetchGames();
+  }, []); 
+
+  useEffect(() => {
+    const fetchScores = async () => {
+        const allScores: Score[] = [];
+        for (const game of games) {
+            try {
+                const response = await axios.get(`http://localhost:8080/scores/${game.id}`);
+                response.data.forEach((scoreData: { member: string; score: number; score_id: string; }) => {
+                    allScores.push({ 
+                        score_id: scoreData.score_id,
+                        user_id: scoreData.member,
+                        score: scoreData.score
+                    });
+                });
+            } catch (error) {
+                console.error(`Error fetching scores for game ${game.id}:`, error);
+            }
+        }
+        setScores(new Set(allScores));
+    };
+
+    if (games.length > 0) {
+        fetchScores();
     }
-    acc[score.game_id].scores.push(score);
-    return acc;
-  }, {} as Record<string, { game_name: string; scores: Score[] }>);
+  }, [games]); 
 
   return (
     <>
       <div>
         <h1>Leaderboard</h1>
         <div>
-          <input type="text" placeholder="Game ID" id="gameId" />
-          <input type="text" placeholder="User ID" id="userId" />
-          <button onClick={handleAddScore}>Add Score</button>
-        </div>
-        <div>
           <h2>Scores</h2>
-          {Object.keys(groupedScores).map((gameId) => (
-            <div key={gameId}>
-              <h3>Game: {groupedScores[gameId].game_name} (ID: {gameId})</h3> 
-              <ul>
-                {groupedScores[gameId].scores.map((score) => (
-                  <li key={score.user_id}>
-                    Rank: {score.rank} - Score: {score.score} - User: {score.username} (ID: {score.user_id})
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {games.map(game => {
+            const gameScores = Array.from(scores).filter(score => score.score_id === game.id);
+            return (
+              <div key={game.id}>
+                <h3>Game: {game.name.charAt(0).toUpperCase() + game.name.slice(1)} ID: {game.id}</h3>
+                {gameScores.length > 0 ? (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>User</th>
+                        <th>Score</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {gameScores.map(score => (
+                        <tr key={score.user_id}>
+                          <td>{score.user_id}</td>
+                          <td>{score.score}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p>No scores available for this game.</p>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </>
-  )
+  );
 }
 
-const handleAddScore = async () => {
-  const gameId = (document.getElementById('gameId') as HTMLInputElement).value;
-  const userId = (document.getElementById('userId') as HTMLInputElement).value;
-
-  try {
-    const response = await axios.post('http://localhost:8080/scores', {
-      gameId,
-      userId,
-    });
-    console.log('Score added successfully:', response.data);
-  } catch (error) {
-    console.error('Error adding score:', error);
-  }
-  
-  (document.getElementById('gameId') as HTMLInputElement).value = '';
-  (document.getElementById('userId') as HTMLInputElement).value = '';
-};
-
-const fetchScores = async (): Promise<Score[]> => {
-  try {
-    const response = await axios.get('http://localhost:8080/scores');
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching scores:', error);
-    return [];
-  }
-};
-export default App
+export default App;

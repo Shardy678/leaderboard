@@ -1,6 +1,9 @@
 package models
 
+import "time"
+
 type Game struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	Name      string    `json:"name"`
+	ID        string    `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
 }

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"leaderboard-system/internal/models"
-	"strings"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -28,6 +27,8 @@ func (repo *ScoreRepository) ScoreToInt(score models.Score) (int, error) {
 	switch v := score.Score.(type) {
 	case int:
 		return v, nil
+	case float64:
+		return int(v), nil
 	case string:
 		var score int
 		_, err := fmt.Sscanf(v, "%d", &score)
@@ -41,8 +42,8 @@ func (repo *ScoreRepository) ScoreToInt(score models.Score) (int, error) {
 }
 
 func (repo *ScoreRepository) CreateScore(score models.Score) (string, error) {
-	if !isValidID(score.GameID) || !isValidID(score.UserID) {
-		return "", fmt.Errorf("game ID and user ID are required and must start with 'game:' and 'user:' respectively")
+	if score.GameID == "" || score.UserID == "" {
+		return "", fmt.Errorf("game ID and user ID are required")
 	}
 
 	scoreInt, err := repo.ScoreToInt(score)
@@ -70,10 +71,6 @@ func (repo *ScoreRepository) CreateScore(score models.Score) (string, error) {
 	return score.ID, nil
 }
 
-func isValidID(id string) bool {
-	return len(id) > 0 && (id[:5] == "game:" || id[:5] == "user:")
-}
-
 func (repo *ScoreRepository) GetAllScores() ([]map[string]interface{}, error) {
 	var allScores []map[string]interface{}
 
@@ -90,26 +87,12 @@ func (repo *ScoreRepository) GetAllScores() ([]map[string]interface{}, error) {
 			if err != nil {
 				return nil, err
 			}
-			gameID := strings.TrimPrefix(key, "score:")
-			gameName, err := repo.redisClient.HGet(repo.ctx, gameID, "name").Result()
-			if err != nil {
-				return nil, err
-			}
 			for rank, score := range scores {
-				userID := score.Member
-				userIDStr := fmt.Sprintf("%v", userID)
-				username, err := repo.redisClient.HGet(repo.ctx, userIDStr, "username").Result()
-				fmt.Println(userIDStr)
-				if err != nil {
-					return nil, err
-				}
 				allScores = append(allScores, map[string]interface{}{
-					"rank":      rank + 1,
-					"score":     score.Score,
-					"user_id":   userID,
-					"username":  username,
-					"game_id":   gameID,
-					"game_name": gameName,
+					"game_id": key,
+					"user_id": score.Member,
+					"rank":    rank + 1,
+					"score":   score.Score,
 				})
 			}
 		}
@@ -122,14 +105,26 @@ func (repo *ScoreRepository) GetAllScores() ([]map[string]interface{}, error) {
 	return allScores, nil
 }
 
-func (repo *ScoreRepository) GetScore(scoreID string) ([]redis.Z, error) {
-	scores, err := repo.redisClient.ZRevRangeWithScores(repo.ctx, scoreID, 0, 1).Result()
-
+func (repo *ScoreRepository) GetScores(scoreID string) ([]map[string]interface{}, error) {
+	scoreID = "score:" + scoreID
+	scores, err := repo.redisClient.ZRevRangeWithScores(repo.ctx, scoreID, 0, -1).Result()
 	if err != nil {
 		return nil, err
 	}
 
-	return scores, nil
+	if len(scores) == 0 {
+		return nil, nil
+	}
+
+	var result []map[string]interface{}
+	for _, score := range scores {
+		result = append(result, map[string]interface{}{
+			"score_id": scoreID[6:],
+			"score":    score.Score,
+			"member":   score.Member,
+		})
+	}
+	return result, nil
 }
 
 func (repo *ScoreRepository) GetRank(scoreID, userID string) (int, error) {
