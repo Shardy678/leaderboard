@@ -4,21 +4,24 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-
 	"leaderboard-system/internal/models"
+
+	"database/sql"
 
 	"github.com/redis/go-redis/v9"
 )
 
 type UserRepository struct {
-	client *redis.Client
-	ctx    context.Context
+	redisClient *redis.Client
+	ctx         context.Context
+	db          *sql.DB
 }
 
-func NewUserRepository(client *redis.Client, ctx context.Context) *UserRepository {
+func NewUserRepository(redisClient *redis.Client, ctx context.Context, db *sql.DB) *UserRepository {
 	return &UserRepository{
-		client: client,
-		ctx:    ctx,
+		redisClient: redisClient,
+		ctx:         ctx,
+		db:          db,
 	}
 }
 
@@ -27,7 +30,7 @@ func (repo *UserRepository) CreateUser(user models.User) (string, error) {
 	user.ID = "user:" + fmt.Sprintf("%x", hash)
 	user.ID = user.ID[:14]
 
-	err := repo.client.HSet(repo.ctx, user.ID, map[string]interface{}{
+	err := repo.redisClient.HSet(repo.ctx, user.ID, map[string]interface{}{
 		"username": user.Username,
 		"password": user.Password,
 	}).Err()
@@ -40,7 +43,7 @@ func (repo *UserRepository) CreateUser(user models.User) (string, error) {
 }
 
 func (repo *UserRepository) GetUser(userID string) (models.User, error) {
-	userData, err := repo.client.HGetAll(repo.ctx, userID).Result()
+	userData, err := repo.redisClient.HGetAll(repo.ctx, userID).Result()
 	if err != nil {
 		return models.User{}, err
 	}
@@ -57,6 +60,6 @@ func (repo *UserRepository) GetUser(userID string) (models.User, error) {
 }
 
 func (repo *UserRepository) GetAllUsers() ([]string, error) {
-	users, err := repo.client.Keys(repo.ctx, "*").Result()
+	users, err := repo.redisClient.Keys(repo.ctx, "*").Result()
 	return users, err
 }

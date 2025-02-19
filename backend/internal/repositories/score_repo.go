@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"leaderboard-system/internal/models"
 	"strings"
@@ -10,12 +11,17 @@ import (
 )
 
 type ScoreRepository struct {
-	client *redis.Client
-	ctx    context.Context
+	redisClient *redis.Client
+	ctx         context.Context
+	db          *sql.DB
 }
 
-func NewScoreRepository(client *redis.Client, ctx context.Context) *ScoreRepository {
-	return &ScoreRepository{client: client, ctx: ctx}
+func NewScoreRepository(redisClient *redis.Client, ctx context.Context, db *sql.DB) *ScoreRepository {
+	return &ScoreRepository{
+		redisClient: redisClient,
+		ctx:         ctx,
+		db:          db,
+	}
 }
 
 func (repo *ScoreRepository) ScoreToInt(score models.Score) (int, error) {
@@ -50,7 +56,7 @@ func (repo *ScoreRepository) CreateScore(score models.Score) (string, error) {
 
 	score.ID = "score:" + score.GameID
 
-	_, err = repo.client.ZAdd(repo.ctx, score.ID,
+	_, err = repo.redisClient.ZAdd(repo.ctx, score.ID,
 		redis.Z{
 			Score:  float64(scoreInt),
 			Member: score.UserID,
@@ -73,26 +79,26 @@ func (repo *ScoreRepository) GetAllScores() ([]map[string]interface{}, error) {
 
 	var cursor uint64
 	for {
-		keys, newCursor, err := repo.client.Scan(repo.ctx, cursor, "score:*", 0).Result()
+		keys, newCursor, err := repo.redisClient.Scan(repo.ctx, cursor, "score:*", 0).Result()
 		if err != nil {
 			return nil, err
 		}
 		cursor = newCursor
 
 		for _, key := range keys {
-			scores, err := repo.client.ZRevRangeWithScores(repo.ctx, key, 0, -1).Result()
+			scores, err := repo.redisClient.ZRevRangeWithScores(repo.ctx, key, 0, -1).Result()
 			if err != nil {
 				return nil, err
 			}
 			gameID := strings.TrimPrefix(key, "score:")
-			gameName, err := repo.client.HGet(repo.ctx, gameID, "name").Result()
+			gameName, err := repo.redisClient.HGet(repo.ctx, gameID, "name").Result()
 			if err != nil {
 				return nil, err
 			}
 			for rank, score := range scores {
 				userID := score.Member
 				userIDStr := fmt.Sprintf("%v", userID)
-				username, err := repo.client.HGet(repo.ctx, userIDStr, "username").Result() // Fetch username by user ID
+				username, err := repo.redisClient.HGet(repo.ctx, userIDStr, "username").Result()
 				fmt.Println(userIDStr)
 				if err != nil {
 					return nil, err
@@ -101,7 +107,7 @@ func (repo *ScoreRepository) GetAllScores() ([]map[string]interface{}, error) {
 					"rank":      rank + 1,
 					"score":     score.Score,
 					"user_id":   userID,
-					"username":  username, // Include username in the result
+					"username":  username,
 					"game_id":   gameID,
 					"game_name": gameName,
 				})
@@ -117,7 +123,7 @@ func (repo *ScoreRepository) GetAllScores() ([]map[string]interface{}, error) {
 }
 
 func (repo *ScoreRepository) GetScore(scoreID string) ([]redis.Z, error) {
-	scores, err := repo.client.ZRevRangeWithScores(repo.ctx, scoreID, 0, 1).Result()
+	scores, err := repo.redisClient.ZRevRangeWithScores(repo.ctx, scoreID, 0, 1).Result()
 
 	if err != nil {
 		return nil, err
@@ -127,7 +133,7 @@ func (repo *ScoreRepository) GetScore(scoreID string) ([]redis.Z, error) {
 }
 
 func (repo *ScoreRepository) GetRank(scoreID, userID string) (int, error) {
-	rank, err := repo.client.ZRevRank(repo.ctx, scoreID, userID).Result()
+	rank, err := repo.redisClient.ZRevRank(repo.ctx, scoreID, userID).Result()
 	if err != nil {
 		return 0, err
 	}

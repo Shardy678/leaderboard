@@ -6,18 +6,22 @@ import (
 	"fmt"
 	"leaderboard-system/internal/models"
 
+	"database/sql"
+
 	"github.com/redis/go-redis/v9"
 )
 
 type GameRepository struct {
-	client *redis.Client
-	ctx    context.Context
+	redisClient *redis.Client
+	ctx         context.Context
+	db          *sql.DB
 }
 
-func NewGameRepository(client *redis.Client, ctx context.Context) *GameRepository {
+func NewGameRepository(redisClient *redis.Client, ctx context.Context, db *sql.DB) *GameRepository {
 	return &GameRepository{
-		client: client,
-		ctx:    ctx,
+		redisClient: redisClient,
+		ctx:         ctx,
+		db:          db,
 	}
 }
 
@@ -30,7 +34,7 @@ func (repo *GameRepository) CreateGame(game models.Game) (string, error) {
 	game.ID = fmt.Sprintf("%x", hash)
 	game.ID = "game:" + game.ID[:10]
 
-	err := repo.client.HSet(repo.ctx, game.ID, map[string]interface{}{
+	err := repo.redisClient.HSet(repo.ctx, game.ID, map[string]interface{}{
 		"name": game.Name,
 	}).Err()
 	if err != nil {
@@ -45,7 +49,7 @@ func (repo *GameRepository) GetGame(gameID string) (models.Game, error) {
 		return models.Game{}, fmt.Errorf("invalid game ID format")
 	}
 
-	game, err := repo.client.HGetAll(repo.ctx, gameID).Result()
+	game, err := repo.redisClient.HGetAll(repo.ctx, gameID).Result()
 	if err != nil {
 		return models.Game{}, err
 	}
@@ -65,14 +69,14 @@ func isValidGameID(gameID string) bool {
 }
 
 func (repo *GameRepository) GetAllGames() ([]models.Game, error) {
-	keys, err := repo.client.Keys(repo.ctx, "game:*").Result()
+	keys, err := repo.redisClient.Keys(repo.ctx, "game:*").Result()
 	if err != nil {
 		return nil, err
 	}
 
 	var games []models.Game
 	for _, key := range keys {
-		gameData, err := repo.client.HGetAll(repo.ctx, key).Result()
+		gameData, err := repo.redisClient.HGetAll(repo.ctx, key).Result()
 		if err != nil {
 			return nil, err
 		}

@@ -2,6 +2,7 @@ package routes
 
 import (
 	"context"
+	"database/sql"
 	"leaderboard-system/internal/handlers"
 	"leaderboard-system/internal/repositories"
 	"net/http"
@@ -10,7 +11,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func RegisterRoutes(r *mux.Router, client *redis.Client, ctx context.Context) {
+func RegisterRoutes(r *mux.Router, redisClient *redis.Client, ctx context.Context, db *sql.DB) {
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
@@ -24,21 +25,21 @@ func RegisterRoutes(r *mux.Router, client *redis.Client, ctx context.Context) {
 		})
 	})
 
-	gameRepo := repositories.NewGameRepository(client, ctx)
+	gameRepo := repositories.NewGameRepository(redisClient, ctx, db)
 	gameHandler := handlers.NewGameHandler(gameRepo)
 
 	r.HandleFunc("/games", gameHandler.GetAllGames).Methods("GET")
 	r.HandleFunc("/games", gameHandler.AddGame).Methods("POST")
 	r.HandleFunc("/games/{id}", gameHandler.GetGame).Methods("GET")
 
-	userRepo := repositories.NewUserRepository(client, ctx)
+	userRepo := repositories.NewUserRepository(redisClient, ctx, db)
 	userHandler := handlers.NewUserHandler(userRepo)
 
 	r.HandleFunc("/users", userHandler.AddUser).Methods("POST")
 	r.HandleFunc("/users/{id}", userHandler.GetUser).Methods("GET")
 	r.HandleFunc("/users", userHandler.GetAllUsers).Methods("GET")
 
-	scoreRepo := repositories.NewScoreRepository(client, ctx)
+	scoreRepo := repositories.NewScoreRepository(redisClient, ctx, db)
 	scoreHandler := handlers.NewScoreHandler(scoreRepo)
 
 	r.HandleFunc("/scores", scoreHandler.GetAllScores).Methods("GET")

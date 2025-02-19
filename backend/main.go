@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"leaderboard-system/internal/database"
 	"leaderboard-system/internal/routes"
 	"log"
 	"net/http"
@@ -11,8 +12,9 @@ import (
 )
 
 var (
-	ctx = context.Background()
-	rdb *redis.Client
+	ctx       = context.Background()
+	rdb       *redis.Client
+	dbService *database.Service
 )
 
 func main() {
@@ -27,8 +29,17 @@ func main() {
 	if err != nil {
 		log.Fatalf("Could not connect to Redis: %v", err)
 	}
+
+	dbService = &database.Service{}
+	db, err := dbService.Connect()
+	if err != nil {
+		log.Fatalf("Could not connect to database: %v", err)
+	}
+	log.Println("Connected to database")
+	defer dbService.Close()
+
 	router := mux.NewRouter()
-	routes.RegisterRoutes(router, rdb, ctx)
+	routes.RegisterRoutes(router, rdb, ctx, db)
 
 	log.Println("Starting server on :8080")
 	log.Fatal(http.ListenAndServe(":8080", router))
