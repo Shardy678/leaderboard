@@ -1,0 +1,9 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  bin = "tmp/main"  # Path to the binary output
+  cmd = "go run ./cmd/main.go"  # Command to run your application
+  watch_dir = ["cmd", "internal"]  # Directories to watch for changes
+  watch_ext = ["go"]  # File extensions to watch
+

@@ -65,19 +65,25 @@ func isValidGameID(gameID string) bool {
 }
 
 func (repo *GameRepository) GetAllGames() ([]models.Game, error) {
-	games, err := repo.client.Keys(repo.ctx, "*").Result()
+	keys, err := repo.client.Keys(repo.ctx, "game:*").Result()
 	if err != nil {
 		return nil, err
 	}
 
-	gamesData := make([]models.Game, len(games))
-	for i, gameID := range games {
-		game, err := repo.GetGame(gameID)
+	var games []models.Game
+	for _, key := range keys {
+		gameData, err := repo.client.HGetAll(repo.ctx, key).Result()
 		if err != nil {
 			return nil, err
 		}
-		gamesData[i] = game
+
+		if len(gameData) > 0 {
+			games = append(games, models.Game{
+				ID:   key,
+				Name: gameData["name"],
+			})
+		}
 	}
 
-	return gamesData, nil
+	return games, nil
 }

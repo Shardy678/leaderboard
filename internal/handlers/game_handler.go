@@ -52,7 +52,9 @@ func (h *GameHandler) GetGame(w http.ResponseWriter, r *http.Request) {
 func (h *GameHandler) GetAllGames(w http.ResponseWriter, r *http.Request) {
 	if games, err := h.repo.GetAllGames(); err != nil {
 		http.Error(w, "Failed to get all games", http.StatusInternalServerError)
+		log.Printf("Error getting all games: %v", err)
 	} else {
+		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(games)
 	}
 }
